@@ -32,15 +32,16 @@ public class CommentsController {
     headers.add("X-XSS-Protection", "1; mode=block");
     headers.add("X-Content-Type-Options", "nosniff");
     headers.add("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
-    headers.add("X-Frame-Options", "DENY");
-    headers.add("Content-Security-Policy", "default-src 'self'");
-    headers.add("Referrer-Policy", "no-referrer");
     // Validate user authentication
-    if (!User.validateAuth(secret, token)) {
+    try {
+      User.assertAuth(secret, token);
+    } catch (Exception e) {
       throw new ServerError("Error validating user authentication");
     }
     // Validate user authorization to perform action
-    if (!User.validateAuthorization(token)) {
+    try {
+      User.assertAuthorization(token);
+    } catch (Exception e) {
       throw new ServerError("Error validating user authorization");
     }
     return Comment.fetch_all();
@@ -53,19 +54,22 @@ public class CommentsController {
     headers.add("X-XSS-Protection", "1; mode=block");
     headers.add("X-Content-Type-Options", "nosniff");
     headers.add("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
-    headers.add("X-Frame-Options", "DENY");
-    headers.add("Content-Security-Policy", "default-src 'self'");
-    headers.add("Referrer-Policy", "no-referrer");
     // Validate user authentication
-    if (!User.validateAuth(secret, token)) {
+    try {
+      User.assertAuth(secret, token);
+    } catch (Exception e) {
       throw new ServerError("Error validating user authentication");
     }
     // Validate user authorization to perform action
-    if (!User.validateAuthorization(token)) {
+    try {
+      User.assertAuthorization(token);
+    } catch (Exception e) {
       throw new ServerError("Error validating user authorization");
     }
     // Validate user authorization to create comment
-    if (!User.validateAuthorizationToCreate(token)) {
+    try {
+      User.assertAuthorizationToCreate(token);
+    } catch (Exception e) {
       throw new ServerError("Error validating user authorization to create comment");
     }
     // Validate input
@@ -77,7 +81,7 @@ public class CommentsController {
     input.body = StringEscapeUtils.escapeHtml4(input.body);
     try {
       // Generate a secure secret key
-      SecureRandom random = SecureRandom.getInstanceStrong();
+      SecureRandom random = new SecureRandom();
       byte[] salt = new byte[16];
       random.nextBytes(salt);
       KeySpec spec = new PBEKeySpec(secret.toCharArray(), salt, 65536, 256);
@@ -97,19 +101,22 @@ public class CommentsController {
     headers.add("X-XSS-Protection", "1; mode=block");
     headers.add("X-Content-Type-Options", "nosniff");
     headers.add("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
-    headers.add("X-Frame-Options", "DENY");
-    headers.add("Content-Security-Policy", "default-src 'self'");
-    headers.add("Referrer-Policy", "no-referrer");
     // Validate user authentication
-    if (!User.validateAuth(secret, token)) {
+    try {
+      User.assertAuth(secret, token);
+    } catch (Exception e) {
       throw new ServerError("Error validating user authentication");
     }
     // Validate user authorization to perform action
-    if (!User.validateAuthorization(token)) {
+    try {
+      User.assertAuthorization(token);
+    } catch (Exception e) {
       throw new ServerError("Error validating user authorization");
     }
     // Validate user authorization to delete comment
-    if (!User.validateAuthorizationToDelete(token, id)) {
+    try {
+      User.assertAuthorizationToDelete(token, id);
+    } catch (Exception e) {
       throw new ServerError("Error validating user authorization to delete comment");
     }
     try {
@@ -129,7 +136,7 @@ public class CommentsController {
       return false;
     }
     // Validate for malicious code injection
-    if (input.username.contains("<") || input.body.contains("<") || input.username.contains("<script>") || input.body.contains("<script>")) {
+    if (input.username.contains("<") || input.body.contains("<")) {
       return false;
     }
     return true;

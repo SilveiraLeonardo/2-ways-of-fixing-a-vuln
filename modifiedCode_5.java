@@ -17,6 +17,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
 import java.util.Base64;
 import java.security.spec.KeySpec;
+import java.security.MessageDigest;
 
 @RestController
 @EnableAutoConfiguration
@@ -84,7 +85,11 @@ public class CommentsController {
       SecretKeyFactory skf = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
       byte[] hash = skf.generateSecret(spec).getEncoded();
       String secureSecret = Base64.getEncoder().encodeToString(hash);
-      return Comment.create(input.username, input.body, secureSecret);
+      // Generate a secure token
+      MessageDigest digest = MessageDigest.getInstance("SHA-256");
+      byte[] encodedhash = digest.digest(secureSecret.getBytes(StandardCharsets.UTF_8));
+      String secureToken = Base64.getEncoder().encodeToString(encodedhash);
+      return Comment.create(input.username, input.body, secureToken);
     } catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
       throw new ServerError("Error creating comment");
     }
@@ -129,7 +134,7 @@ public class CommentsController {
       return false;
     }
     // Validate for malicious code injection
-    if (input.username.contains("<") || input.body.contains("<") || input.username.contains("<script>") || input.body.contains("<script>")) {
+    if (input.username.contains("<") || input.body.contains("<") || input.username.contains("<script>") || input.body.contains("<script>") || input.username.contains("<script") || input.body.contains("<script") || input.username.contains("&") || input.body.contains("&") || input.username.contains(";") || input.body.contains(";") || input.username.contains("\\") || input.body.contains("\\")) {
       return false;
     }
     return true;

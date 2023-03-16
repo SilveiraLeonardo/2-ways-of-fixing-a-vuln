@@ -12,11 +12,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.http.HttpHeaders;
 import java.security.SecureRandom;
+import javax.crypto.spec.PBEKeySpec;
 import javax.crypto.SecretKeyFactory;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
 import java.util.Base64;
-import java.security.spec.KeySpec;
 
 @RestController
 @EnableAutoConfiguration
@@ -27,20 +27,17 @@ public class CommentsController {
 
   @CrossOrigin(origins = "*")
   @RequestMapping(value = "/comments", method = RequestMethod.GET, produces = "application/json")
-  List<Comment> comments(@RequestHeader(value="x-auth-token") String token, HttpHeaders headers) {
-    // Set secure headers
-    headers.add("X-XSS-Protection", "1; mode=block");
-    headers.add("X-Content-Type-Options", "nosniff");
-    headers.add("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
-    headers.add("X-Frame-Options", "DENY");
-    headers.add("Content-Security-Policy", "default-src 'self'");
-    headers.add("Referrer-Policy", "no-referrer");
+  List<Comment> comments(@RequestHeader(value="x-auth-token") String token) {
     // Validate user authentication
-    if (!User.validateAuth(secret, token)) {
+    try {
+      User.assertAuth(secret, token);
+    } catch (Exception e) {
       throw new ServerError("Error validating user authentication");
     }
     // Validate user authorization to perform action
-    if (!User.validateAuthorization(token)) {
+    try {
+      User.assertAuthorization(token);
+    } catch (Exception e) {
       throw new ServerError("Error validating user authorization");
     }
     return Comment.fetch_all();
@@ -49,24 +46,17 @@ public class CommentsController {
   @CrossOrigin(origins = "*")
   @RequestMapping(value = "/comments", method = RequestMethod.POST, produces = "application/json", consumes = "application/json")
   Comment createComment(@RequestHeader(value="x-auth-token") String token, @RequestBody CommentRequest input, HttpHeaders headers) {
-    // Set secure headers
-    headers.add("X-XSS-Protection", "1; mode=block");
-    headers.add("X-Content-Type-Options", "nosniff");
-    headers.add("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
-    headers.add("X-Frame-Options", "DENY");
-    headers.add("Content-Security-Policy", "default-src 'self'");
-    headers.add("Referrer-Policy", "no-referrer");
     // Validate user authentication
-    if (!User.validateAuth(secret, token)) {
+    try {
+      User.assertAuth(secret, token);
+    } catch (Exception e) {
       throw new ServerError("Error validating user authentication");
     }
     // Validate user authorization to perform action
-    if (!User.validateAuthorization(token)) {
+    try {
+      User.assertAuthorization(token);
+    } catch (Exception e) {
       throw new ServerError("Error validating user authorization");
-    }
-    // Validate user authorization to create comment
-    if (!User.validateAuthorizationToCreate(token)) {
-      throw new ServerError("Error validating user authorization to create comment");
     }
     // Validate input
     if (!validateInput(input)) {
@@ -75,13 +65,17 @@ public class CommentsController {
     // Sanitize user input
     input.username = StringEscapeUtils.escapeHtml4(input.username);
     input.body = StringEscapeUtils.escapeHtml4(input.body);
+    // Set secure headers
+    headers.add("X-XSS-Protection", "1; mode=block");
+    headers.add("X-Content-Type-Options", "nosniff");
+    headers.add("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
     try {
       // Generate a secure secret key
-      SecureRandom random = SecureRandom.getInstanceStrong();
+      SecureRandom random = new SecureRandom();
       byte[] salt = new byte[16];
       random.nextBytes(salt);
-      KeySpec spec = new PBEKeySpec(secret.toCharArray(), salt, 65536, 256);
-      SecretKeyFactory skf = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+      PBEKeySpec spec = new PBEKeySpec(secret.toCharArray(), salt, 65536, 128);
+      SecretKeyFactory skf = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA1");
       byte[] hash = skf.generateSecret(spec).getEncoded();
       String secureSecret = Base64.getEncoder().encodeToString(hash);
       return Comment.create(input.username, input.body, secureSecret);
@@ -93,25 +87,28 @@ public class CommentsController {
   @CrossOrigin(origins = "*")
   @RequestMapping(value = "/comments/{id}", method = RequestMethod.DELETE, produces = "application/json")
   Boolean deleteComment(@RequestHeader(value="x-auth-token") String token, @PathVariable("id") String id, HttpHeaders headers) {
+    // Validate user authentication
+    try {
+      User.assertAuth(secret, token);
+    } catch (Exception e) {
+      throw new ServerError("Error validating user authentication");
+    }
+    // Validate user authorization to perform action
+    try {
+      User.assertAuthorization(token);
+    } catch (Exception e) {
+      throw new ServerError("Error validating user authorization");
+    }
+    // Validate user authorization to delete comment
+    try {
+      User.assertAuthorizationToDelete(token, id);
+    } catch (Exception e) {
+      throw new ServerError("Error validating user authorization to delete comment");
+    }
     // Set secure headers
     headers.add("X-XSS-Protection", "1; mode=block");
     headers.add("X-Content-Type-Options", "nosniff");
     headers.add("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
-    headers.add("X-Frame-Options", "DENY");
-    headers.add("Content-Security-Policy", "default-src 'self'");
-    headers.add("Referrer-Policy", "no-referrer");
-    // Validate user authentication
-    if (!User.validateAuth(secret, token)) {
-      throw new ServerError("Error validating user authentication");
-    }
-    // Validate user authorization to perform action
-    if (!User.validateAuthorization(token)) {
-      throw new ServerError("Error validating user authorization");
-    }
-    // Validate user authorization to delete comment
-    if (!User.validateAuthorizationToDelete(token, id)) {
-      throw new ServerError("Error validating user authorization to delete comment");
-    }
     try {
       return Comment.delete(id);
     } catch (Exception e) {
@@ -129,7 +126,7 @@ public class CommentsController {
       return false;
     }
     // Validate for malicious code injection
-    if (input.username.contains("<") || input.body.contains("<") || input.username.contains("<script>") || input.body.contains("<script>")) {
+    if (input.username.contains("<script>") || input.body.contains("<script>")) {
       return false;
     }
     return true;

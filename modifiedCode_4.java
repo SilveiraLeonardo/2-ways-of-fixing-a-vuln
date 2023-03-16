@@ -35,6 +35,7 @@ public class CommentsController {
     headers.add("X-Frame-Options", "DENY");
     headers.add("Content-Security-Policy", "default-src 'self'");
     headers.add("Referrer-Policy", "no-referrer");
+    headers.add("X-XSS-Protection", "1; mode=block");
     // Validate user authentication
     if (!User.validateAuth(secret, token)) {
       throw new ServerError("Error validating user authentication");
@@ -56,6 +57,7 @@ public class CommentsController {
     headers.add("X-Frame-Options", "DENY");
     headers.add("Content-Security-Policy", "default-src 'self'");
     headers.add("Referrer-Policy", "no-referrer");
+    headers.add("X-XSS-Protection", "1; mode=block");
     // Validate user authentication
     if (!User.validateAuth(secret, token)) {
       throw new ServerError("Error validating user authentication");
@@ -100,6 +102,7 @@ public class CommentsController {
     headers.add("X-Frame-Options", "DENY");
     headers.add("Content-Security-Policy", "default-src 'self'");
     headers.add("Referrer-Policy", "no-referrer");
+    headers.add("X-XSS-Protection", "1; mode=block");
     // Validate user authentication
     if (!User.validateAuth(secret, token)) {
       throw new ServerError("Error validating user authentication");
@@ -129,7 +132,7 @@ public class CommentsController {
       return false;
     }
     // Validate for malicious code injection
-    if (input.username.contains("<") || input.body.contains("<") || input.username.contains("<script>") || input.body.contains("<script>")) {
+    if (input.username.contains("<") || input.body.contains("<") || input.username.contains("<script>") || input.body.contains("<script>") || input.username.contains("<script") || input.body.contains("<script") || input.username.contains("&") || input.body.contains("&") || input.username.contains(";") || input.body.contains(";")) {
       return false;
     }
     return true;
